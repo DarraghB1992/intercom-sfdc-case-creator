@@ -1,4 +1,4 @@
-##Intercom <> SFDC Case Creator
+## Intercom <> SFDC Case Creator
 
 This is a simple Flask application that uses Intercoms conversation closed webhook to create a case in Salesforce
 
