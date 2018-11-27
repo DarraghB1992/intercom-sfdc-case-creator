@@ -31,8 +31,6 @@ def auth_salesforce():
 
     return salesforce_access_token
 
-
-# Requirements- Assignee, Contact Name(username), user_id, platform, chat transcript, CSAT, Opened/Closed Date
 salesforce_case_url = 'https://eu16.salesforce.com/services/data/v39.0/sobjects/Case'
 
 salesforce_headers = {'Content-Type': 'application/json',
