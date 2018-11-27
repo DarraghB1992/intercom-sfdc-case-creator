@@ -1,3 +1,4 @@
 .idea/*
 .venv/*
-.ngrok
+ngrok
+__pycache__/
