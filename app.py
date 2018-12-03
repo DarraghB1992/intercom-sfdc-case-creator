@@ -29,12 +29,14 @@ def auth_salesforce():
     response = json.loads(r.content)
     salesforce_access_token = response['access_token']
 
-    return salesforce_access_token
+    print salesforce_access_token
+    return str(salesforce_access_token)
+
+
 
 salesforce_case_url = 'https://eu16.salesforce.com/services/data/v39.0/sobjects/Case'
-
 salesforce_headers = {'Content-Type': 'application/json',
-                      'Authorization': 'Bearer ' + str(auth_salesforce())}
+                      'Authorization': 'Bearer ' + auth_salesforce()}
 
 intercom_base_url = 'https://api.intercom.io/'
 intercom_headers = {'Authorization': 'Bearer ' + os.environ['INTERCOM_ACCESS_TOKEN'],
@@ -56,31 +58,58 @@ def listener():
     user_email = conversation_json['data']['item']['user']['email']
     user_id = conversation_json['data']['item']['user']['user_id']
 
-    # Gather Converastion information from webhook
+    # Gather Conversation information from webhook
     conversation_id = conversation_json['data']['item']['id']
     conversation_created_timestamp = conversation_json['data']['item']['created_at']
     conversation_closed_timestamp = conversation_json['created_at']
 
-    human_readable_converastion_created_at = datetime.datetime.fromtimestamp(
-        int(conversation_created_timestamp)).strftime('%Y-%m-%d %H:%M:%S')
+    # Make timestamps human readable
+    converastion_created_at = create_human_readable_timestamp(conversation_closed_timestamp)
+    converastion_closed_at = create_human_readable_timestamp(conversation_closed_timestamp)
 
-    human_readable_converastion_closed_at = datetime.datetime.fromtimestamp(
-        int(conversation_closed_timestamp)).strftime('%Y-%m-%d %H:%M:%S')
-
-    # Make request to Intercom API to gather the entire converastion and format it
+    # Make request to Intercom API to gather the entire conversation and format it
     conversation = get_conversation(conversation_id)
-    json_convo = json.loads(conversation)
-    converastion_parts = json_convo['conversation_parts']['conversation_parts']
-    print(converastion_parts)
 
+    # Format the conversation to send to Salesforce
+    current_conversation = format_conversation(conversation, converastion_created_at, username)
+
+    # Create case in Salesforce
+    create_salesforce_case(username, current_conversation, user_email, user_id)
+
+    return "Ok"
+
+
+# Gets the conversation from Intercoms REST API
+def get_conversation(conversation_id):
+    conversation = requests.get(intercom_base_url + 'conversations/' + conversation_id, headers=intercom_headers)
+    converastion_as_text = conversation.text
+    json_convo = json.loads(converastion_as_text)
+    return json_convo
+
+
+# Gets the admin for the conversation part from Intercoms REST API
+def get_admin(admin_id):
+    admin = requests.get(intercom_base_url + 'admins/' + admin_id, headers=intercom_headers)
+    return admin.text
+
+
+def create_human_readable_timestamp(unix_timestamp):
+    human_readable_timestamp = datetime.datetime.fromtimestamp(
+        int(unix_timestamp)).strftime('%Y-%m-%d %H:%M:%S')
+    return human_readable_timestamp
+
+
+def format_conversation(conversation, conversation_created_at, username):
     current_conversation = []
+
+    converastion_parts = conversation['conversation_parts']['conversation_parts']
 
     # The first message in a conversation is outside the conversation_parts object, format it and add
     # to current conversation array
-    first_message_in_conversation = json_convo['conversation_message']['body']
+    first_message_in_conversation = conversation['conversation_message']['body']
     first_message_cleaned = BeautifulSoup(first_message_in_conversation, 'lxml').text
 
-    current_conversation.append(username + '-' + human_readable_converastion_created_at + ': ' + first_message_cleaned)
+    current_conversation.append(username + '-' + conversation_created_at + ': ' + first_message_cleaned)
 
     # Goes through the remaining converastion parts and adds them to the current conversation array
     for x in converastion_parts:
@@ -104,8 +133,11 @@ def listener():
             current_conversation.append(format_conversation_part)
 
     # Adding spaces between messages
-    formatted_conversation = '\n\n'.join(str(x) for x in current_conversation)
+    formatted_conversation = '\n\n'.join(x.encode('utf-8') for x in current_conversation)
+    return formatted_conversation
 
+
+def create_salesforce_case(username, current_conversation, user_email, user_id):
     # Case object for Salesforce
     case_object = {
         "Type": "Testing",
@@ -116,7 +148,7 @@ def listener():
         "Subject": username,
         "Priority": "Low",
         "AccountId": "0011t000007dqBoAAI",
-        "Conversation_Transcript__c": formatted_conversation,
+        "Conversation_Transcript__c": current_conversation,
         "SuppliedName": username,
         "SuppliedEmail": user_email,
         "SuppliedPhone": "0833333333",
@@ -127,20 +159,9 @@ def listener():
     # Create the case in Salesforce
     r = requests.post(salesforce_case_url, headers=salesforce_headers, json=case_object)
     print(r.status_code)
+    print(r.content)
     print(r.raise_for_status())
-    return "Ok"
 
-
-# Gets the conversation from Intercoms REST API
-def get_conversation(conversation_id):
-    conversation = requests.get(intercom_base_url + 'conversations/' + conversation_id, headers=intercom_headers)
-    return conversation.text
-
-
-# Gets the admin for the converastion part from Intercoms REST API
-def get_admin(admin_id):
-    admin = requests.get(intercom_base_url + 'admins/' + admin_id, headers=intercom_headers)
-    return admin.text
 
 
 if __name__ == '__main__':

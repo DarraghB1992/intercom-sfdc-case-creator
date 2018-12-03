@@ -1,4 +1,8 @@
-.idea/*
-.venv/*
+*.idea/
+*.venv/
 ngrok
-__pycache__/
+*__pycache__/
+*.pyc
+venv/
+*listner_env/
+
