@@ -15,6 +15,11 @@ class FlaskTestCase(unittest.TestCase):
         response = client.get('/', content_type='html/text')
         self.assertEquals(response.status_code, 200)
 
+    def test_visit_non_existant_page(self):
+        client = app.test_client(self)
+        response = client.get('/random', content_type='html/text')
+        self.assertEquals(response.status_code, 404)
+
     # def test_listener(self):
     #     client = app.test_client(self)
     #     mocked_post = Mock(status_code=201, json=)

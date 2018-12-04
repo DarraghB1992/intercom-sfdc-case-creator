@@ -1,4 +1,4 @@
-from flask import Flask, request, json
+from flask import Flask, request, json, render_template
 from bs4 import BeautifulSoup
 import requests
 import datetime
@@ -29,7 +29,6 @@ def auth_salesforce():
     response = json.loads(r.content)
     salesforce_access_token = response['access_token']
 
-    print salesforce_access_token
     return str(salesforce_access_token)
 
 
@@ -46,6 +45,10 @@ intercom_headers = {'Authorization': 'Bearer ' + os.environ['INTERCOM_ACCESS_TOK
 @app.route('/')
 def home():
     return "Hello, World"
+
+@app.errorhandler(404)
+def page_not_found(error):
+    return render_template('404.html'), 404
 
 
 @app.route('/listener', methods=['POST'])
@@ -161,7 +164,6 @@ def create_salesforce_case(username, current_conversation, user_email, user_id):
     print(r.status_code)
     print(r.content)
     print(r.raise_for_status())
-
 
 
 if __name__ == '__main__':
